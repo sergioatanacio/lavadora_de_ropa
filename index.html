@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lavandería Interactiva</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-4xl mx-auto">
+        <canvas id="lavanderiaCanvas" class="border border-gray-300 rounded-lg shadow-lg"></canvas>
+        <div class="mt-4 flex justify-center space-x-2">
+            <button onclick="agregarRopa('👕', 'red', 'Camiseta')" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Agregar Camiseta
+            </button>
+            <button onclick="agregarRopa('👖', 'blue', 'Pantalón')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                Agregar Pantalón
+            </button>
+            <button onclick="agregarRopa('🧦', 'green', 'Medias')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+                Agregar Medias
+            </button>
+            <button onclick="iniciarLavado()" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
+                Iniciar Lavado
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('lavanderiaCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 600;
+
+        const areas = {
+            ropaSucia: { x: 10, y: 10, width: 180, height: 580 },
+            lavadora: { x: 200, y: 10, width: 380, height: 580 },
+            ropaTender: { x: 590, y: 10, width: 200, height: 280 },
+            ropaGuardar: { x: 590, y: 300, width: 200, height: 290 }
+        };
+
+        let ropaSucia = [];
+        let ropaEnLavadora = [];
+        let ropaTender = [];
+        let ropaGuardar = [];
+        let lavandose = false;
+        let vibracion = 0;
+        let ropaSiendoArrastrada = null;
+
+        function dibujarArea(area, titulo) {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(area.x, area.y, area.width, area.height);
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(area.x, area.y, area.width, area.height);
+            ctx.fillStyle = 'black';
+            ctx.font = '16px Arial';
+            ctx.fillText(titulo, area.x + 10, area.y + 20);
+        }
+
+        function dibujarRopa(prenda, x, y) {
+            ctx.fillStyle = prenda.color;
+            ctx.fillRect(x, y, 40, 40);
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Arial';
+            ctx.fillText(prenda.emoji, x + 10, y + 30);
+            if (prenda.clicksParaSecar !== undefined) {
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.fillText(`Clics: ${prenda.clicksParaSecar}`, x, y + 52);
+            }
+        }
+
+        function dibujarLavadora() {
+            const area = areas.lavadora;
+            ctx.save();
+            if (lavandose) {
+                ctx.translate(Math.random() * vibracion - vibracion/2, Math.random() * vibracion - vibracion/2);
+            }
+            ctx.beginPath();
+            ctx.arc(area.x + area.width/2, area.y + area.height/2, 150, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(area.x + area.width/2, area.y + area.height/2, 100, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function dibujar() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            dibujarArea(areas.ropaSucia, "Ropa Sucia");
+            dibujarArea(areas.lavadora, "Lavadora");
+            dibujarArea(areas.ropaTender, "Ropa para Tender");
+            dibujarArea(areas.ropaGuardar, "Ropa Guardada");
+
+            dibujarLavadora();
+
+            ropaSucia.forEach((prenda, index) => {
+                dibujarRopa(prenda, areas.ropaSucia.x + 10 + (index % 3) * 50, areas.ropaSucia.y + 40 + Math.floor(index / 3) * 50);
+            });
+
+            ropaEnLavadora.forEach(prenda => {
+                dibujarRopa(prenda, prenda.x, prenda.y);
+            });
+
+            ropaTender.forEach((prenda, index) => {
+                dibujarRopa(prenda, areas.ropaTender.x + 10 + (index % 3) * 50, areas.ropaTender.y + 40 + Math.floor(index / 3) * 50);
+            });
+
+            ropaGuardar.forEach((prenda, index) => {
+                dibujarRopa(prenda, areas.ropaGuardar.x + 10 + (index % 3) * 50, areas.ropaGuardar.y + 40 + Math.floor(index / 3) * 50);
+            });
+
+            if (ropaSiendoArrastrada) {
+                dibujarRopa(ropaSiendoArrastrada, ropaSiendoArrastrada.x, ropaSiendoArrastrada.y);
+            }
+
+            requestAnimationFrame(dibujar);
+        }
+
+        function agregarRopa(emoji, color, tipo) {
+            ropaSucia.push({ emoji, color, tipo });
+        }
+
+        function iniciarLavado() {
+            if (ropaEnLavadora.length > 0 && !lavandose) {
+                lavandose = true;
+                setTimeout(() => {
+                    lavandose = false;
+                    vibracion = 0;
+                    ropaTender = ropaTender.concat(ropaEnLavadora.map(prenda => ({...prenda, clicksParaSecar: 5})));
+                    ropaEnLavadora = [];
+                }, 5000);
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Manejar clics en el área de ropa para tender
+            for (let i = ropaTender.length - 1; i >= 0; i--) {
+                const prendaX = areas.ropaTender.x + 10 + (i % 3) * 50;
+                const prendaY = areas.ropaTender.y + 40 + Math.floor(i / 3) * 50;
+                if (x > prendaX && x < prendaX + 40 && y > prendaY && y < prendaY + 40) {
+                    ropaTender[i].clicksParaSecar--;
+                    if (ropaTender[i].clicksParaSecar === 0) {
+                        const prendaSeca = ropaTender.splice(i, 1)[0];
+                        delete prendaSeca.clicksParaSecar;
+                        ropaGuardar.push(prendaSeca);
+                    }
+                    return;
+                }
+            }
+
+            // Manejar arrastre de ropa sucia
+            for (let i = ropaSucia.length - 1; i >= 0; i--) {
+                const prendaX = areas.ropaSucia.x + 10 + (i % 3) * 50;
+                const prendaY = areas.ropaSucia.y + 40 + Math.floor(i / 3) * 50;
+                if (x > prendaX && x < prendaX + 40 && y > prendaY && y < prendaY + 40) {
+                    ropaSiendoArrastrada = ropaSucia.splice(i, 1)[0];
+                    ropaSiendoArrastrada.x = x - 20;
+                    ropaSiendoArrastrada.y = y - 20;
+                    break;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (ropaSiendoArrastrada) {
+                const rect = canvas.getBoundingClientRect();
+                ropaSiendoArrastrada.x = e.clientX - rect.left - 20;
+                ropaSiendoArrastrada.y = e.clientY - rect.top - 20;
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (ropaSiendoArrastrada) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                if (x > areas.lavadora.x && x < areas.lavadora.x + areas.lavadora.width &&
+                    y > areas.lavadora.y && y < areas.lavadora.y + areas.lavadora.height) {
+                    ropaEnLavadora.push(ropaSiendoArrastrada);
+                } else {
+                    ropaSucia.push(ropaSiendoArrastrada);
+                }
+
+                ropaSiendoArrastrada = null;
+            }
+        });
+
+        function actualizarLavadora() {
+            if (lavandose) {
+                vibracion = Math.min(vibracion + 0.1, 5);
+                ropaEnLavadora.forEach(prenda => {
+                    prenda.x += Math.random() * 4 - 2;
+                    prenda.y += Math.random() * 4 - 2;
+                    const centerX = areas.lavadora.x + areas.lavadora.width / 2;
+                    const centerY = areas.lavadora.y + areas.lavadora.height / 2;
+                    if (Math.sqrt((prenda.x - centerX)**2 + (prenda.y - centerY)**2) > 140) {
+                        const angulo = Math.atan2(prenda.y - centerY, prenda.x - centerX);
+                        prenda.x = centerX + Math.cos(angulo) * 140;
+                        prenda.y = centerY + Math.sin(angulo) * 140;
+                    }
+                });
+            } else {
+                vibracion = Math.max(vibracion - 0.1, 0);
+            }
+            requestAnimationFrame(actualizarLavadora);
+        }
+
+        dibujar();
+        actualizarLavadora();
+    </script>
+</body>
+</html>
